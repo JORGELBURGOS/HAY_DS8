@@ -976,25 +976,11 @@ function showSaveOptionsDialog() {
 }
 
 // Función para generar PDF COMPLETO con gráficos y detalles
-
 function generatePDF() {
-    const resultSection = document.querySelector(".result-card");
-    if (!resultSection) {
-        alert("No se encontró la sección de resultados para exportar.");
+    if (!window.currentEvaluation) {
+        showNotification('No hay evaluación para generar PDF', 'error');
         return;
     }
-
-    const opt = {
-        margin:       0.5,
-        filename:     'evaluacion_puesto.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(resultSection).save();
-}
-
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -1455,52 +1441,3 @@ document.addEventListener('DOMContentLoaded', function() {
     showContent('evaluationContent');
     goToSection('1-section');
 });
-
-function openModal() {
-    const modal = document.getElementById("saveModal");
-    if (modal) modal.style.display = "block";
-}
-
-function closeModal() {
-    const modal = document.getElementById("saveModal");
-    if (modal) modal.style.display = "none";
-}
-
-function saveAsCSV() {
-    const jobTitle = document.getElementById("jobTitle").value || "Sin título";
-    const jobDesc = document.getElementById("jobDescription").value || "";
-    const jobResp = document.getElementById("jobResponsibilities").value || "";
-
-    const totalScore = document.getElementById("totalScore").innerText;
-    const jobLevel = document.getElementById("jobLevel").innerText;
-    const knowhow = document.getElementById("knowHowScore").innerText;
-    const problem = document.getElementById("problemSolvingScore").innerText;
-    const resp = document.getElementById("responsibilityScore").innerText;
-
-    const evaluations = JSON.parse(localStorage.getItem("evaluaciones") || "[]");
-    const nueva = {
-        titulo: jobTitle,
-        descripcion: jobDesc,
-        responsabilidades: jobResp,
-        total: totalScore,
-        nivel: jobLevel,
-        knowhow,
-        problema: problem,
-        responsabilidad: resp,
-        fecha: new Date().toLocaleString()
-    };
-    evaluations.push(nueva);
-    localStorage.setItem("evaluaciones", JSON.stringify(evaluations));
-
-    // Exportar CSV
-    const encabezados = Object.keys(nueva).join(";");
-    const valores = Object.values(nueva).join(";");
-    const blob = new Blob([encabezados + "\n" + valores], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "evaluacion.csv";
-    link.click();
-
-    closeModal();
-}
