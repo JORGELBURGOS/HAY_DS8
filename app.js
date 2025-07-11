@@ -976,45 +976,25 @@ function showSaveOptionsDialog() {
 }
 
 // Función para generar PDF COMPLETO con gráficos y detalles
+
 function generatePDF() {
-function generatePDF() {
-    const doc = new jsPDF();
+    const element = document.getElementById("result-section");
+    if (!element) {
+        alert("No se encontró la sección de resultados para generar el PDF.");
+        return;
+    }
 
-    const puesto = document.getElementById("puestoNombre").value;
-    const descripcion = document.getElementById("descripcion").value;
-    const responsabilidades = document.getElementById("responsabilidades").value;
+    const opt = {
+        margin:       0.5,
+        filename:     'evaluacion_puesto.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
 
-    const knowHowScore = parseInt(document.getElementById("knowHowScore").innerText) || 0;
-    const problemSolvingScore = parseInt(document.getElementById("problemSolvingScore").innerText) || 0;
-    const responsibilityScore = parseInt(document.getElementById("responsibilityScore").innerText) || 0;
-    const totalScore = parseInt(document.getElementById("totalScore").innerText) || 0;
-
-    let y = 20;
-    doc.setFontSize(16);
-    doc.text("Evaluación de Puesto", 20, y);
-    y += 10;
-
-    doc.setFontSize(12);
-    doc.text(`Nombre del Puesto: ${puesto}`, 20, y); y += 10;
-
-    doc.text("Descripción del Puesto:", 20, y); y += 8;
-    const descripcionLines = doc.splitTextToSize(descripcion, 170);
-    doc.text(descripcionLines, 20, y);
-    y += descripcionLines.length * 7;
-
-    doc.text("Responsabilidades Principales:", 20, y); y += 8;
-    const responsabilidadesLines = doc.splitTextToSize(responsabilidades, 170);
-    doc.text(responsabilidadesLines, 20, y);
-    y += responsabilidadesLines.length * 7;
-
-    y += 5;
-    doc.text(`Know-How: ${knowHowScore}`, 20, y); y += 7;
-    doc.text(`Solución de Problemas: ${problemSolvingScore}`, 20, y); y += 7;
-    doc.text(`Responsabilidad: ${responsibilityScore}`, 20, y); y += 7;
-    doc.text(`Total: ${totalScore}`, 20, y); y += 10;
-
-    doc.save(`Evaluacion_${puesto}.pdf`);
+    html2pdf().from(element).set(opt).save();
 }
+
 }
 
 function handleSaveResult(result, type) {
