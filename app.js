@@ -978,9 +978,9 @@ function showSaveOptionsDialog() {
 // Función para generar PDF COMPLETO con gráficos y detalles
 
 function generatePDF() {
-    const element = document.getElementById("result-section");
-    if (!element) {
-        alert("No se encontró la sección de resultados para generar el PDF.");
+    const resultSection = document.querySelector(".result-card");
+    if (!resultSection) {
+        alert("No se encontró la sección de resultados para exportar.");
         return;
     }
 
@@ -989,12 +989,246 @@ function generatePDF() {
         filename:     'evaluacion_puesto.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
 
-    html2pdf().from(element).set(opt).save();
+    html2pdf().set(opt).from(resultSection).save();
 }
 
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const evalData = window.currentEvaluation;
+    const profileType = determineProfileType(evalData.scores.knowHow, evalData.scores.problemSolving);
+    const profileInfo = evaluationData.profileTypes[profileType];
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const centerX = pageWidth / 2;
+
+    // --- CONFIGURACIÓN INICIAL ---
+    doc.setFont('helvetica', 'normal');
+
+    // --- PORTADA ---
+    doc.setFontSize(24);
+    doc.setTextColor(40, 53, 147);
+    doc.text('Evaluación de Puesto', centerX, 30, { align: 'center' });
+    
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Puesto: ${evalData.jobTitle}`, margin, 50);
+    doc.text(`Fecha: ${new Date(evalData.evaluationDate).toLocaleDateString()}`, margin, 60);
+    
+    // Gráfico radial (simplificado para PDF)
+    const maxScore = 1056;
+    const scores = [
+        { label: 'Know-How', value: evalData.scores.knowHow, color: [67, 97, 238] },
+        { label: 'Solución Problemas', value: evalData.scores.problemSolving, color: [244, 63, 94] },
+        { label: 'Responsabilidad', value: evalData.scores.responsibility, color: [16, 185, 129] }
+    ];
+    
+    const radarRadius = 30;
+    const radarX = centerX;
+    const radarY = 100;
+    
+    // Dibujar ejes del gráfico radial
+    doc.setDrawColor(200, 200, 200);
+    for (let i = 0; i < 3; i++) {
+        doc.circle(radarX, radarY, radarRadius * (i + 1) / 3, 'D');
+    }
+    
+    // Dibujar datos
+    scores.forEach((score, i) => {
+        const angle = (i * (2 * Math.PI / scores.length)) - Math.PI / 2;
+        const scoreRadius = (score.value / maxScore) * radarRadius;
+        const x = radarX + scoreRadius * Math.cos(angle);
+        const y = radarY + scoreRadius * Math.sin(angle);
+        
+        doc.setFillColor(score.color[0], score.color[1], score.color[2], 100);
+        doc.circle(x, y, 3, 'F');
+        
+        // Conectar al centro
+        if (i === 0) doc.moveTo(radarX, radarY);
+        doc.lineTo(x, y);
+        doc.stroke();
+    });
+    
+    // Leyenda
+    doc.setFontSize(10);
+    let legendY = radarY + radarRadius + 20;
+    scores.forEach(score => {
+        doc.setFillColor(score.color[0], score.color[1], score.color[2]);
+        doc.rect(margin, legendY - 3, 5, 5, 'F');
+        doc.text(`${score.label}: ${score.value} pts`, margin + 10, legendY);
+        legendY += 10;
+    });
+
+    // --- DETALLES DEL PUESTO ---
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(40, 53, 147);
+    doc.text('Descripción del Puesto', margin, 20);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    const jobDescLines = doc.splitTextToSize(evalData.jobDescription || 'No especificado', pageWidth - 2 * margin);
+    doc.text(jobDescLines, margin, 30);
+    
+    doc.setFontSize(14);
+    doc.text('Responsabilidades:', margin, 50);
+    doc.setFontSize(12);
+    const responsibilitiesLines = doc.splitTextToSize(evalData.jobResponsibilities || 'No especificado', pageWidth - 2 * margin);
+    doc.text(responsibilitiesLines, margin, 60);
+
+    // --- TABLA DE PUNTAJES ---
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(40, 53, 147);
+    doc.text('Detalle de Puntajes', margin, 20);
+    
+    // Tabla de Know-How
+    const techLevel = document.getElementById('technicalCompetence').value;
+    const commLevel = document.getElementById('communicationLevel').value;
+    const intLevel = document.getElementById('integrationScope').value;
+    
+    doc.autoTable({
+        startY: 30,
+        head: [['Know-How', 'Selección', 'Puntaje']],
+        body: [
+            ['Competencia Técnica', techLevel, evalData.scores.knowHow],
+            ['Nivel Comunicación', commLevel, ''],
+            ['Ámbito Integración', intLevel, '']
+        ],
+        headStyles: { fillColor: [40, 53, 147], textColor: [255, 255, 255] }
+    });
+    
+    // Tabla de Solución de Problemas
+    const compLevel = document.getElementById('problemComplexity').value;
+    const thinkLevel = document.getElementById('thinkingFreedom').value;
+    
+    doc.autoTable({
+        startY: doc.previousAutoTable.finalY + 20,
+        head: [['Solución de Problemas', 'Selección', 'Puntaje']],
+        body: [
+            ['Complejidad', compLevel, evalData.scores.problemSolving],
+            ['Libertad Pensamiento', thinkLevel, '']
+        ],
+        headStyles: { fillColor: [40, 53, 147], textColor: [255, 255, 255] }
+    });
+    
+    // Tabla de Responsabilidad
+    const actionLevel = document.getElementById('actionFreedom').value;
+    const impactNature = document.getElementById('impactNature').value;
+    const impactMagnitude = document.getElementById('impactMagnitude').value;
+    
+    doc.autoTable({
+        startY: doc.previousAutoTable.finalY + 20,
+        head: [['Responsabilidad', 'Selección', 'Puntaje']],
+        body: [
+            ['Libertad para Actuar', actionLevel, evalData.scores.responsibility],
+            ['Naturaleza Impacto', impactNature, ''],
+            ['Magnitud Impacto', impactMagnitude, '']
+        ],
+        headStyles: { fillColor: [40, 53, 147], textColor: [255, 255, 255] }
+    });
+
+    // --- DESCRIPCIONES DE LAS SELECCIONES ---
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(40, 53, 147);
+    doc.text('Explicación de Criterios', margin, 20);
+    
+    // Know-How: Competencia Técnica
+    doc.setFontSize(14);
+    doc.text('1. Know-How', margin, 30);
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Competencia Técnica:', margin, 40);
+    doc.setFont('helvetica', 'normal');
+    const techDesc = evaluationData.knowHow.descriptions.technical[techLevel];
+    doc.text(doc.splitTextToSize(techDesc, pageWidth - 2 * margin), margin, 50);
+    
+    // Know-How: Comunicación
+    doc.setFont('helvetica', 'bold');
+    doc.text('Nivel de Comunicación:', margin, 80);
+    doc.setFont('helvetica', 'normal');
+    const commDesc = evaluationData.knowHow.descriptions.communication[commLevel];
+    doc.text(doc.splitTextToSize(commDesc, pageWidth - 2 * margin), margin, 90);
+    
+    // Know-How: Integración
+    doc.setFont('helvetica', 'bold');
+    doc.text('Ámbito de Integración:', margin, 120);
+    doc.setFont('helvetica', 'normal');
+    const intDesc = evaluationData.knowHow.descriptions.integration[intLevel];
+    doc.text(doc.splitTextToSize(intDesc, pageWidth - 2 * margin), margin, 130);
+    
+    // Solución de Problemas: Complejidad
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('2. Solución de Problemas', margin, 20);
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Complejidad de las Situaciones:', margin, 30);
+    doc.setFont('helvetica', 'normal');
+    const compDesc = evaluationData.problemSolving.descriptions.complexity[compLevel];
+    doc.text(doc.splitTextToSize(compDesc, pageWidth - 2 * margin), margin, 40);
+    
+    // Solución de Problemas: Libertad
+    doc.setFont('helvetica', 'bold');
+    doc.text('Marco de Referencia - Libertad de Pensar:', margin, 70);
+    doc.setFont('helvetica', 'normal');
+    const thinkDesc = evaluationData.problemSolving.descriptions.thinkingFreedom[thinkLevel];
+    doc.text(doc.splitTextToSize(thinkDesc, pageWidth - 2 * margin), margin, 80);
+    
+    // Responsabilidad: Libertad para Actuar
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('3. Responsabilidad', margin, 20);
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Libertad para Actuar:', margin, 30);
+    doc.setFont('helvetica', 'normal');
+    const actionDesc = evaluationData.responsibility.descriptions.freedom[actionLevel];
+    doc.text(doc.splitTextToSize(actionDesc, pageWidth - 2 * margin), margin, 40);
+    
+    // Responsabilidad: Naturaleza Impacto
+    doc.setFont('helvetica', 'bold');
+    doc.text('Naturaleza del Impacto:', margin, 70);
+    doc.setFont('helvetica', 'normal');
+    const natureDesc = evaluationData.responsibility.descriptions.impactNature[impactNature];
+    doc.text(doc.splitTextToSize(natureDesc, pageWidth - 2 * margin), margin, 80);
+    
+    // Responsabilidad: Magnitud Impacto
+    doc.setFont('helvetica', 'bold');
+    doc.text('Magnitud del Impacto:', margin, 110);
+    doc.setFont('helvetica', 'normal');
+    const magnitudeDesc = evaluationData.responsibility.descriptions.magnitude[impactMagnitude];
+    doc.text(doc.splitTextToSize(magnitudeDesc, pageWidth - 2 * margin), margin, 120);
+    
+    // --- RESUMEN FINAL ---
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(40, 53, 147);
+    doc.text('Resumen de Evaluación', margin, 20);
+    
+    doc.setFontSize(14);
+    doc.text(`Puesto: ${evalData.jobTitle}`, margin, 35);
+    doc.text(`Fecha: ${new Date(evalData.evaluationDate).toLocaleDateString()}`, margin, 45);
+    
+    doc.setFontSize(12);
+    doc.text(`Puntaje Total: ${evalData.scores.total}`, margin, 60);
+    doc.text(`Nivel: ${evalData.level.level}`, margin, 70);
+    doc.text(`Perfil: ${profileInfo.name}`, margin, 80);
+    
+    doc.text('Descripción del Nivel:', margin, 95);
+    doc.text(doc.splitTextToSize(evalData.level.description, pageWidth - 2 * margin), margin, 105);
+    
+    // Guardar PDF
+    doc.save(`Evaluacion_Completa_${evalData.jobTitle.replace(/\s+/g, '_')}.pdf`);
+    showNotification('PDF generado correctamente', 'success');
 }
 
 function handleSaveResult(result, type) {
@@ -1221,3 +1455,52 @@ document.addEventListener('DOMContentLoaded', function() {
     showContent('evaluationContent');
     goToSection('1-section');
 });
+
+function openModal() {
+    const modal = document.getElementById("saveModal");
+    if (modal) modal.style.display = "block";
+}
+
+function closeModal() {
+    const modal = document.getElementById("saveModal");
+    if (modal) modal.style.display = "none";
+}
+
+function saveAsCSV() {
+    const jobTitle = document.getElementById("jobTitle").value || "Sin título";
+    const jobDesc = document.getElementById("jobDescription").value || "";
+    const jobResp = document.getElementById("jobResponsibilities").value || "";
+
+    const totalScore = document.getElementById("totalScore").innerText;
+    const jobLevel = document.getElementById("jobLevel").innerText;
+    const knowhow = document.getElementById("knowHowScore").innerText;
+    const problem = document.getElementById("problemSolvingScore").innerText;
+    const resp = document.getElementById("responsibilityScore").innerText;
+
+    const evaluations = JSON.parse(localStorage.getItem("evaluaciones") || "[]");
+    const nueva = {
+        titulo: jobTitle,
+        descripcion: jobDesc,
+        responsabilidades: jobResp,
+        total: totalScore,
+        nivel: jobLevel,
+        knowhow,
+        problema: problem,
+        responsabilidad: resp,
+        fecha: new Date().toLocaleString()
+    };
+    evaluations.push(nueva);
+    localStorage.setItem("evaluaciones", JSON.stringify(evaluations));
+
+    // Exportar CSV
+    const encabezados = Object.keys(nueva).join(";");
+    const valores = Object.values(nueva).join(";");
+    const blob = new Blob([encabezados + "\n" + valores], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "evaluacion.csv";
+    link.click();
+
+    closeModal();
+}
